@@ -1356,3 +1356,39 @@ class ValueRange(WindowFrame):
 
     def window_frame_start_end(self, connection, start, end):
         return connection.ops.window_frame_range_start_end(start, end)
+
+
+class With(Expression):
+    template = 'WITH %(alias)s AS (%(inner)s)'
+
+    def __init__(self, queryset, output_field=None, **extra):
+        self.query = queryset.query
+        self.extra = extra
+        super().__init__(output_field)
+
+    def resolve_expression(self, query=None, allow_joins=True, reuse=None, summarize=False, for_save=False):
+        c = super().resolve_expression(query, allow_joins, reuse, summarize, for_save)
+        return c
+
+    def as_sql(self, compiler, connection, template=None, **extra_context):
+        connection.ops.check_expression_support(self)
+        params = {**self.extra, **extra_context}
+        params['alias'] = 'cte_film'
+        inner_sql, inner_params = self.query.as_sql(compiler, connection)
+        params['inner'] = inner_sql % inner_params
+        template = template or params.get('template', self.template)
+        return template, params
+
+    @property
+    def output_field(self):
+        return super().output_field
+
+    @property
+    def convert_value(self):
+        return super().convert_value
+
+    def get_lookup(self, lookup):
+        return self.output_field.get_lookup(lookup)
+
+    def get_transform(self, name):
+        return self.output_field.get_transform(name)

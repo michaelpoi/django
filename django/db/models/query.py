@@ -1080,6 +1080,16 @@ class QuerySet:
 
         return clone
 
+    # def attach(self, **kwargs):
+    #     if len(kwargs) != 1:
+    #         raise ValueError("Can attach only one queryset")
+    #     alias = next(iter(kwargs))
+    #     queryset = kwargs[alias]
+    #     if not isinstance(queryset, QuerySet):
+    #         raise TypeError("Value to argumat is not a QuerySet")
+    #     self.query.attach_cte(alias, queryset.query)
+    #     return self
+
     def order_by(self, *field_names):
         """Return a new QuerySet instance with the ordering changed."""
         assert not self.query.is_sliced, \
