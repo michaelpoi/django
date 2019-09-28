@@ -1359,7 +1359,7 @@ class ValueRange(WindowFrame):
 
 
 class With(Expression):
-    template = 'WITH %(alias)s AS (%(inner)s)'
+    template = '(%s)'
 
     def __init__(self, queryset, output_field=None, **extra):
         self.query = queryset.query
@@ -1372,16 +1372,15 @@ class With(Expression):
 
     def as_sql(self, compiler, connection, template=None, **extra_context):
         connection.ops.check_expression_support(self)
-        params = {**self.extra, **extra_context}
-        params['alias'] = 'cte_film'
-        inner_sql, inner_params = self.query.as_sql(compiler, connection)
-        params['inner'] = inner_sql % inner_params
-        template = template or params.get('template', self.template)
-        return template, params
+        sql, params = self.query.as_sql(compiler, connection)
+        return self.template % sql, params
 
-    @property
-    def output_field(self):
-        return super().output_field
+    def _resolve_output_field(self):
+        return self.query.output_field
+
+    def select_format(self, compiler, sql, params):
+        result = super().select_format(compiler, sql, params)
+        return result
 
     @property
     def convert_value(self):
@@ -1392,3 +1391,20 @@ class With(Expression):
 
     def get_transform(self, name):
         return self.output_field.get_transform(name)
+
+    def get_common_expression_model(self, alias):
+        """
+        From the given query, build a temporary database model, which can be used to refer to the
+        common table expression.
+        """
+        from django.db.models.base import Model, ModelBase
+
+        class Meta:
+            managed = False
+            db_table = alias
+
+        attrs = {'Meta': Meta, '__module__': self.query.model.__module__}
+        for name, col in self.query.annotation_select.items():
+            attrs[name] = col.field.clone()
+        model = type('Temp', (Model,), attrs)
+        return model

@@ -170,6 +170,7 @@ class Query(BaseExpression):
         self.used_aliases = set()
         self.filter_is_sticky = False
         self.subquery = False
+        self.with_cte = {}
 
         # SQL-related attributes
         # Select and related select clauses are expressions to use in the
@@ -1011,6 +1012,13 @@ class Query(BaseExpression):
         self.append_annotation_mask([alias])
         self.annotations[alias] = annotation
 
+    def attach_cte(self, annotation, alias):
+        if self.with_cte:
+            raise ValueError("Can not annotate more than one 'With'-expression on a queryset")
+        annotation = annotation.resolve_expression(self, allow_joins=True, reuse=None)  # brauch ma des?
+        self.append_annotation_mask([alias])  # brauch ma des?
+        self.with_cte = {alias: annotation}
+
     def resolve_expression(self, query, *args, **kwargs):
         clone = self.clone()
         # Subqueries need to use a different set of aliases than the outer query.
@@ -1043,6 +1051,8 @@ class Query(BaseExpression):
         sql, params = self.get_compiler(connection=connection).as_sql()
         if self.subquery:
             sql = '(%s)' % sql
+        if self.with_cte:
+            sql = sql
         return sql, params
 
     def resolve_lookup_value(self, value, can_reuse, allow_joins, simple_col):
@@ -1437,7 +1447,9 @@ class Query(BaseExpression):
             try:
                 field = opts.get_field(name)
             except FieldDoesNotExist:
-                if name in self.annotation_select:
+                if name in self.with_cte:
+                    field = self.with_cte[name].output_field
+                elif name in self.annotation_select:
                     field = self.annotation_select[name].output_field
                 elif name in self._filtered_relations and pos == 0:
                     filtered_relation = self._filtered_relations[name]

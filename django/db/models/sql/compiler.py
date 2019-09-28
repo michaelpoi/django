@@ -496,8 +496,15 @@ class SQLCompiler:
                 from_, f_params = self.get_from_clause()
                 where, w_params = self.compile(self.where) if self.where is not None else ("", [])
                 having, h_params = self.compile(self.having) if self.having is not None else ("", [])
-                result = ['SELECT']
-                params = []
+
+                if self.query.with_cte:
+                    alias, cte_query = next(iter(self.query.with_cte.items()))
+                    sql, params = cte_query.as_sql(self, self.connection)
+                    result = ['WITH', alias, 'AS', sql, 'SELECT']
+                    params = list(params)
+                else:
+                    result = ['SELECT']
+                    params = []
 
                 if self.query.distinct:
                     distinct_result, distinct_params = self.connection.ops.distinct_sql(

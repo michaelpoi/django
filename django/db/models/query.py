@@ -18,7 +18,7 @@ from django.db import (
 from django.db.models import DateField, DateTimeField, sql
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.deletion import Collector
-from django.db.models.expressions import Case, Expression, F, Value, When
+from django.db.models.expressions import Case, Expression, F, Value, When, With
 from django.db.models.fields import AutoField
 from django.db.models.functions import Cast, Trunc
 from django.db.models.query_utils import FilteredRelation, InvalidQuery, Q
@@ -1067,6 +1067,8 @@ class QuerySet:
                                  "the model." % alias)
             if isinstance(annotation, FilteredRelation):
                 clone.query.add_filtered_relation(annotation, alias)
+            elif isinstance(annotation, With):
+                clone.query.attach_cte(annotation, alias)
             else:
                 clone.query.add_annotation(annotation, alias, is_summary=False)
 
@@ -1079,16 +1081,6 @@ class QuerySet:
                 break
 
         return clone
-
-    # def attach(self, **kwargs):
-    #     if len(kwargs) != 1:
-    #         raise ValueError("Can attach only one queryset")
-    #     alias = next(iter(kwargs))
-    #     queryset = kwargs[alias]
-    #     if not isinstance(queryset, QuerySet):
-    #         raise TypeError("Value to argumat is not a QuerySet")
-    #     self.query.attach_cte(alias, queryset.query)
-    #     return self
 
     def order_by(self, *field_names):
         """Return a new QuerySet instance with the ordering changed."""
