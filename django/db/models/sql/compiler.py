@@ -497,8 +497,8 @@ class SQLCompiler:
                 where, w_params = self.compile(self.where) if self.where is not None else ("", [])
                 having, h_params = self.compile(self.having) if self.having is not None else ("", [])
 
-                if self.query.with_cte:
-                    alias, cte_query = next(iter(self.query.with_cte.items()))
+                if self.query.with_ctes:
+                    alias, cte_query = next(iter(self.query.with_ctes.items()))
                     sql, params = cte_query.as_sql(self, self.connection)
                     result = ['WITH', alias, 'AS', sql, 'SELECT']
                     params = list(params)

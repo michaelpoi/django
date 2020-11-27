@@ -1361,10 +1361,10 @@ class ValueRange(WindowFrame):
 class With(Expression):
     template = '(%s)'
 
-    def __init__(self, queryset, output_field=None, **extra):
+    def __init__(self, queryset, **extra):
         self.query = queryset.query
         self.extra = extra
-        super().__init__(output_field)
+        super().__init__(output_field=fields.related.RelatedField())
 
     def resolve_expression(self, query=None, allow_joins=True, reuse=None, summarize=False, for_save=False):
         c = super().resolve_expression(query, allow_joins, reuse, summarize, for_save)
@@ -1387,15 +1387,29 @@ class With(Expression):
         return super().convert_value
 
     def get_lookup(self, lookup):
+        from django.db.models.lookups import Exact
+        return Exact
+
+        lookup_name = 'exact'
+        lhs = self.query.try_transform(self, lookup)
+        lookup_class = lhs.get_lookup(lookup_name)
+
+        # lookup_ = self.query.build_lookup(self, )
+        # return lookup_
+
+        # return self.query.get_lookup(lookup)
+        return fields.CharField().get_lookup('exact')
         return self.output_field.get_lookup(lookup)
 
     def get_transform(self, name):
+        # if name == 'length':
+        #    return fields.CharField
         return self.output_field.get_transform(name)
 
     def get_common_expression_model(self, alias):
         """
-        From the given query, build a temporary database model, which can be used to refer to the
-        common table expression.
+        From the given query, build a temporary database model, which can be used to refer against the
+        common table expression, passed in through the constructor.
         """
         from django.db.models.base import Model, ModelBase
 

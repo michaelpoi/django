@@ -1068,7 +1068,7 @@ class QuerySet:
             if isinstance(annotation, FilteredRelation):
                 clone.query.add_filtered_relation(annotation, alias)
             elif isinstance(annotation, With):
-                clone.query.attach_cte(annotation, alias)
+                clone.query.add_common_table_expression(annotation, alias)
             else:
                 clone.query.add_annotation(annotation, alias, is_summary=False)
 

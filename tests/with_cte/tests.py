@@ -1,10 +1,11 @@
+import pprint
 from django.core.exceptions import FieldError
 from django.db import connection
 from django.db.models import (
     CharField,
     Model,
     Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
-    Max, Min, Sum, Value
+    Max, Min, Sum, Value, ForeignKey, FilteredRelation
 )
 from django.db.models.expressions import Case, Exists, OuterRef, Subquery, With, When
 from django.db.models.functions import Length
@@ -13,12 +14,15 @@ from django.test.testcases import skipUnlessDBFeature
 from django.test.utils import Approximate, CaptureQueriesContext
 from django.utils.timezone import datetime, timedelta
 
-from .models import Distributor, Film, Dummy
+from .models import Distributor, Film
+
+pp = pprint.PrettyPrinter(indent=4)
 
 
 class year(datetime):
     def __new__(cls, year):
         return super().__new__(cls, year, 1, 1)
+
 
 class CTETestCase(TestCase):
     @classmethod
@@ -70,12 +74,12 @@ class CTETestCase(TestCase):
     def t_est_related_query(self):
         """
         SELECT film_id, title, (CASE
-            WHEN length < 60 THEN 'short'
-            WHEN length >= 60 AND length <= 100 THEN 'regular'
-            WHEN length > 100 THEN 'long'
-        END) length FROM film
-                    INNER JOIN distributor ON (film.distributor_id=distributor.id)
-            WHERE distributor WHERE distributor.name='20th Century Fox'
+                WHEN length < 60 THEN 'short'
+                WHEN length >= 60 AND length <= 100 THEN 'regular'
+                WHEN length > 100 THEN 'long'
+            END) length FROM film
+            INNER JOIN distributor ON (film.distributor_id=distributor.id)
+            WHERE distributor.name='20th Century Fox'
         """
         print('=== Test Related Query ===')
         qs = Film.objects.annotate(
@@ -87,12 +91,40 @@ class CTETestCase(TestCase):
             )
         ).values_list('title', 'length')
         qs = qs.filter(distributor__name='20th Century Fox')
-        self.assertIs(qs.count(), 15)
+        self.assertIs(qs.count(), 5)
         sql, params = qs.query.sql_with_params()
         sql = sql % params
         print(sql)
 
-    def test_non_recursive_self_referring(self):
+    def t_est_related_query_using_annotation(self):
+        """
+        SELECT film_id, title, (CASE
+                WHEN length < 60 THEN 'short'
+                WHEN length >= 60 AND length <= 100 THEN 'regular'
+                WHEN length > 100 THEN 'long'
+            END) length, distributor.name AS distname FROM film
+            INNER JOIN distributor ON (film.distributor_id=distributor.id)
+            WHERE distributor.name='20th Century Fox'
+        """
+        print('=== Test Related Query ===')
+        qs = Film.objects.annotate(
+            length=Case(
+                When(duration__lt=timedelta(minutes=60), then=Value('short')),
+                When(duration__gte=timedelta(minutes=60), duration__lte=timedelta(minutes=100), then=Value('regular')),
+                When(duration__gt=timedelta(minutes=100), then=Value('long')),
+                output_field=CharField(),
+            ),
+            distname=F('distributor__name'),
+            titlen=Length('title'),
+        ).values_list('title', 'length', 'distname')
+        pp.pprint(qs.query.annotations)
+        qs = qs.filter(distname='20th Century Fox')
+        self.assertIs(qs.count(), 5)
+        sql, params = qs.query.sql_with_params()
+        sql = sql % params
+        print(sql)
+
+    def t_est_non_recursive_self_referring(self):
         """
         WITH cte_film AS (
             SELECT film_id, title_, (CASE
@@ -131,11 +163,11 @@ class CTETestCase(TestCase):
         """
         WITH cte_film AS (
             SELECT film_id, title_, (CASE
-                WHEN length < 60 THEN "short"
-                WHEN length >= 60 AND length <= 100 THEN "regular"
-                WHEN length > 100 THEN "long"
-                ELSE "unclassified"
-            END) length, title AS title_, Length(title) AS titlen FROM film
+                    WHEN length < 60 THEN "short"
+                    WHEN length >= 60 AND length <= 100 THEN "regular"
+                    WHEN length > 100 THEN "long"
+                    ELSE "unclassified"
+                END) length, Length(title) AS titlen FROM film
         )
         SELECT id, name FROM distributor;
         """
@@ -146,11 +178,19 @@ class CTETestCase(TestCase):
                 When(duration__gte=timedelta(minutes=60), duration__lte=timedelta(minutes=100), then=Value('regular')),
                 When(duration__gt=timedelta(minutes=100), then=Value('long')),
                 default=Value('unclassified'),
-                output_field=CharField(),
+                output_field=CharField(help_text="foo bar"),
             ),
+            titlen=Length('title'),
         )
+        print(inner_qs.count())
+        self.assertIs(inner_qs.filter(length='regular').count(), 6)
+
         outer_qs = Distributor.objects.annotate(cte_film=With(inner_qs))
+        pp.pprint(outer_qs.query.annotations)
         self.assertIs(outer_qs.count(), 4)
         sql, params = outer_qs.query.sql_with_params()
         print(sql % params)
         outer_qs = outer_qs.filter(cte_film__length='short')
+        sql, params = outer_qs.query.sql_with_params()
+        print(sql % params)
+        self.assertEqual(outer_qs.count(), 5)
