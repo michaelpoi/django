@@ -130,6 +130,18 @@ class LazySettings(LazyObject):
             val = self._add_script_prefix(val)
         elif name == "SECRET_KEY" and not val:
             raise ImproperlyConfigured("The SECRET_KEY setting must not be empty.")
+        elif name == "EMAIL_PROVIDERS":
+            email_attrs = [
+                'EMAIL_BACKEND', 'EMAIL_HOST', 'EMAIL_PORT',
+                'EMAIL_USE_LOCALTIME', 'EMAIL_USE_SSL', 'EMAIL_USE_TLS',
+                'EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD',
+                'EMAIL_SSL_CERTFILE', 'EMAIL_SSL_KEYFILE'
+            ]
+            for attr in email_attrs:
+                if hasattr(self._wrapped, attr):
+                    raise ImproperlyConfigured(
+                        f"{attr} and EMAIL_PROVIDERS are mutually exclusive."
+                    )
 
         self.__dict__[name] = val
         return val
@@ -243,7 +255,7 @@ class Settings:
                 EMAIL_BACKEND_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["BACKEND"] = self.EMAIL_BACKEND
+            self.EMAIL_PROVIDERS["default"]["BACKEND"] = self.EMAIL_BACKEND
         if self.is_overridden("EMAIL_HOST"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -253,7 +265,7 @@ class Settings:
                 EMAIL_HOST_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["host"] = self.EMAIL_HOST
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"]["host"] = self.EMAIL_HOST
         if self.is_overridden("EMAIL_PORT"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -263,7 +275,7 @@ class Settings:
                 EMAIL_PORT_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["port"] = self.EMAIL_PORT
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"]["port"] = self.EMAIL_PORT
         if self.is_overridden("EMAIL_USE_LOCALTIME"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -273,7 +285,7 @@ class Settings:
                 EMAIL_USE_LOCALTIME_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["USE_LOCALTIME"] = self.EMAIL_USE_LOCALTIME
+            self.EMAIL_PROVIDERS["default"]["USE_LOCALTIME"] = self.EMAIL_USE_LOCALTIME
         if self.is_overridden("EMAIL_HOST_USER"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -283,7 +295,8 @@ class Settings:
                 EMAIL_HOST_USER_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["username"] = self.EMAIL_HOST_USER
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"][
+                "username"] = self.EMAIL_HOST_USER
         if self.is_overridden("EMAIL_HOST_PASSWORD"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -293,7 +306,8 @@ class Settings:
                 EMAIL_HOST_PASSWORD_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["password"] = self.EMAIL_HOST_PASSWORD
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"][
+                "password"] = self.EMAIL_HOST_PASSWORD
         if self.is_overridden("EMAIL_USE_TLS"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -303,7 +317,7 @@ class Settings:
                 EMAIL_USE_TLS_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["use_tls"] = self.EMAIL_USE_TLS
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"]["use_tls"] = self.EMAIL_USE_TLS
         if self.is_overridden("EMAIL_USE_SSL"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -313,7 +327,7 @@ class Settings:
                 EMAIL_USE_SSL_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["use_ssl"] = self.EMAIL_USE_SSL
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"]["use_ssl"] = self.EMAIL_USE_SSL
         if self.is_overridden("EMAIL_SSL_CERTFILE"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -323,7 +337,8 @@ class Settings:
                 EMAIL_SSL_CERTFILE_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["ssl_certfile"] = self.EMAIL_SSL_CERTFILE
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"][
+                "ssl_certfile"] = self.EMAIL_SSL_CERTFILE
         if self.is_overridden("EMAIL_SSL_KEYFILE"):
             if self._is_overridden_EMAIL_PROVIDERS:
                 raise ImproperlyConfigured(
@@ -333,7 +348,8 @@ class Settings:
                 EMAIL_SSL_KEYFILE_DEPRECATED_MSG,
                 RemovedInDjango61Warning,
             )
-            self.EMAIL_PROVIDER["default"]["OPTIONS"]["ssl_keyfile"] = self.EMAIL_SSL_KEYFILE
+            self.EMAIL_PROVIDERS["default"]["OPTIONS"][
+                "ssl_keyfile"] = self.EMAIL_SSL_KEYFILE
 
         if hasattr(time, "tzset") and self.TIME_ZONE:
             # When we can, attempt to validate the timezone. If we can't find
